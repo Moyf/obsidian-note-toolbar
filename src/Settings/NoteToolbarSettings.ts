@@ -2,6 +2,7 @@ import { getUUID } from "Utils/Utils";
 
 /* only update when settings structure changes to trigger migrations */
 export const SETTINGS_VERSION = 20240727.1;
+export const WHATSNEW_VERSION = 1.18;
 
 /******************************************************************************
  * TRANSLATIONS
@@ -22,9 +23,20 @@ i18next.addResourceBundle('zh', 'plugin-note-toolbar', zh_CN); // load localized
 
 export const t = i18next.getFixedT(null, 'plugin-note-toolbar', null); // string translation function
 
+// DOCUMENTATION TRANSLATIONS
+
+import en_whatsnew from "I18n/en-whats-new.md";
+
+i18next.addResourceBundle('en', 'plugin-note-toolbar-docs', { "whats-new": en_whatsnew });
+
+export const tdocs = i18next.getFixedT(null, 'plugin-note-toolbar-docs', null); // string translation function
+
 /******************************************************************************
  TYPES
  ******************************************************************************/
+
+export const COMMAND_PREFIX_TBAR = 'open-toolbar-';
+export const VIEW_TYPE_WHATS_NEW = 'ntb-whats-new-view';
 
 export enum ComponentType {
 	Icon = 'icon',
@@ -33,10 +45,14 @@ export enum ComponentType {
 export enum ItemType {
 	Break = 'break',
 	Command = 'command',
+	Dataview = 'dataview',
 	File = 'file',
+	Folder = 'folder',
 	Group = 'group',
+	JsEngine = 'js-engine',
 	Menu = 'menu',
 	Separator = 'separator',
+	Templater = 'templater-obsidian',
 	Uri = 'uri'
 }
 export enum PlatformType {
@@ -47,11 +63,73 @@ export enum PlatformType {
 	None = 'none'
 }
 export enum PositionType {
+	Bottom = 'bottom',
 	FabLeft = 'fabl',
 	FabRight = 'fabr',
 	Hidden = 'hidden',
 	Props = 'props',
 	Top = 'top'
+}
+export enum RibbonAction {
+	ItemSuggester = 'item-suggester',
+	ToolbarSuggester = 'toolbar-suggester',
+	Toolbar = 'toolbar'
+}
+export enum SettingType {
+	Args = 'args',
+	Command = 'command',
+	File = 'file',
+	Ignore = 'ignore',
+	Script = 'script',
+	Text = 'text',
+	TextArea = 'textarea',
+	Toolbar = 'toolbar',
+}
+export enum DefaultStyleType {
+	Autohide = 'autohide',
+	Border = 'border',
+	Button = 'button',
+	Center = 'center',
+	Wide = 'wide',
+	Left = 'left',
+	Right = 'right',
+	Between = 'between',
+	Even = 'even',
+	Sticky = 'sticky'
+}
+export enum MobileStyleType {
+	Border = 'mbrder',
+	NoBorder = 'mnbrder',
+	Button = 'mbtn',
+	Center = 'mctr',
+	NoWide = 'mnwd',
+	NoWrap = 'mnwrp',
+	Wide = 'mwd',
+	Left = 'mlft',
+	Right = 'mrght',
+	Between = 'mbtwn',
+	Even = 'mevn',
+	Sticky = 'mstcky',
+	NoSticky = 'mnstcky'
+}
+export const MOBILE_STYLE_COMPLIMENTS: MobileStyleType[][] = [
+	[MobileStyleType.Left, MobileStyleType.Center, MobileStyleType.Right],
+	[MobileStyleType.Wide, MobileStyleType.NoWide],
+	[MobileStyleType.Between, MobileStyleType.Even]
+];
+
+export const SettingFieldItemMap: Record<ItemType, SettingType> = {
+	[ItemType.Break]: SettingType.Ignore,
+	[ItemType.Command]: SettingType.Command,
+	[ItemType.Dataview]: SettingType.Script,
+	[ItemType.File]: SettingType.File,
+	[ItemType.Folder]: SettingType.File,
+	[ItemType.Group]: SettingType.Toolbar,
+	[ItemType.JsEngine]: SettingType.Script,
+	[ItemType.Menu]: SettingType.Toolbar,
+	[ItemType.Separator]: SettingType.Ignore,
+	[ItemType.Uri]: SettingType.Text,
+	[ItemType.Templater]: SettingType.Script
 }
 export enum ViewType {
 	All = 'all',
@@ -60,11 +138,15 @@ export enum ViewType {
 }
 
 export enum CalloutAttr {
-	Break = 'data-ntb-break',
-    Command = 'data-ntb-command',
-    Folder = 'data-ntb-folder',
-    Menu = 'data-ntb-menu',
-	Separator = 'data-ntb-sep'
+    Command = 'data-command',
+    CommandNtb = 'data-ntb-command', // for backwards-compatibility
+	Dataview = 'data-dataview',
+    Folder = 'data-folder',
+    FolderNtb = 'data-ntb-folder', // for backwards-compatibility
+	JsEngine = 'data-js-engine',
+    Menu = 'data-menu',
+    MenuNtb = 'data-ntb-menu', // for backwards-compatibility
+	Templater = 'data-templater-obsidian',
 }
 
 export enum ToolbarStyle {
@@ -72,26 +154,52 @@ export enum ToolbarStyle {
 }
 
 export interface NoteToolbarSettings {
+	emptyViewToolbar: string | null;
+	export: ExportSettings;
 	folderMappings: Array<FolderMapping>;
 	icon: string;
+	ribbonAction: RibbonAction;
+	scriptingEnabled: boolean;
 	showEditInFabMenu: boolean;
+	showToolbarInFileMenu: boolean;
 	toolbarProp: string;
 	toolbars: Array<ToolbarSettings>;
 	version: number;
+	whatsnew_version: number;
 }
 
 export const DEFAULT_SETTINGS: NoteToolbarSettings = {
+	emptyViewToolbar: null,
+	export: {
+		includeIcons: true,
+		replaceVars: true,
+		useDataEls: true,
+		useIds: true,
+	},
 	folderMappings: [],
 	icon: "circle-ellipsis",
+	ribbonAction: RibbonAction.Toolbar,
+	scriptingEnabled: false,
 	showEditInFabMenu: false,
+	showToolbarInFileMenu: false,
 	toolbarProp: "notetoolbar",
 	toolbars: [],
 	version: SETTINGS_VERSION,
+	whatsnew_version: 0
+}
+
+export interface ExportSettings {
+    includeIcons: boolean;
+    replaceVars: boolean;
+	useDataEls: boolean;
+    useIds: boolean;
 }
 
 export interface ToolbarSettings {
 	uuid: string;
+	customClasses: string;
 	defaultStyles: string[];
+	hasCommand: boolean;
 	items: Array<ToolbarItemSettings>;
 	mobileStyles: string[];
 	name: string;
@@ -106,7 +214,9 @@ export interface ToolbarSettings {
 
 export const DEFAULT_TOOLBAR_SETTINGS: ToolbarSettings = {
 	uuid: getUUID(),
-	defaultStyles: ["border","even","sticky"],
+	customClasses: "",
+	defaultStyles: [DefaultStyleType.Border, DefaultStyleType.Even, DefaultStyleType.Sticky],
+	hasCommand: false,
 	items: [],
 	mobileStyles: [],
 	name: "",
@@ -117,6 +227,12 @@ export const DEFAULT_TOOLBAR_SETTINGS: ToolbarSettings = {
 	},
 	updated: new Date().toISOString(),
 };
+
+export const DEFAULT_ITEM_VISIBILITY_SETTINGS = {
+	desktop: { allViews: { components: [ComponentType.Icon, ComponentType.Label] } },
+	mobile: { allViews: { components: [ComponentType.Icon, ComponentType.Label] } },
+	tablet: { allViews: { components: [ComponentType.Icon, ComponentType.Label] } }
+}
 
 export interface Position {
 	desktop?: {
@@ -186,6 +302,7 @@ export interface ToolbarItemSettings {
 	label: string;
 	link: string;
 	linkAttr: ToolbarItemLinkAttr;
+	scriptConfig?: ScriptConfig;
 	tooltip: string;
 	visibility: Visibility;
 }
@@ -199,91 +316,114 @@ export interface ToolbarItemLinkAttr {
 	type: ItemType;
 };
 
+/**
+ * Describes the configuration for various script-type items. 
+ */
+export interface ScriptConfig {
+	pluginFunction: string;
+	expression?: string;
+	sourceFile?: string;
+	sourceFunction?: string;
+	sourceArgs?: string;
+	outputContainer?: string;
+	outputFile?: string;
+	postCommand?: string;
+};
+
 /******************************************************************************
  UI STRINGS
  ******************************************************************************/
 
 export const USER_GUIDE_URL = 'https://github.com/chrisgurney/obsidian-note-toolbar/wiki/';
 export const RELEASES_URL = 'https://github.com/chrisgurney/obsidian-note-toolbar/releases';
+export const COMMAND_DOES_NOT_EXIST = 'COMMAND_DOES_NOT_EXIST';
+
+export const SCRIPT_ATTRIBUTE_MAP: Record<string, string> = {
+    'expression': 'data-expr',
+    'sourceFile': 'data-src',
+    'sourceFunction': 'data-func',
+    'sourceArgs': 'data-args',
+    'outputContainer': 'data-callout',
+    'outputFile': 'data-dest'
+};
 
 export const LINK_OPTIONS = {
 	[ItemType.Command]: t('setting.item.option-command'),
+	[ItemType.Dataview]: "Dataview",
 	[ItemType.File]: t('setting.item.option-file'),
 	[ItemType.Group]: t('setting.item.option-item-group'),
 	[ItemType.Menu]: t('setting.item.option-item-menu'),
+	[ItemType.JsEngine]: "JS Engine",
+	[ItemType.Templater]: "Templater",
 	[ItemType.Uri]: t('setting.item.option-uri')
 }
 
 export const POSITION_OPTIONS = {
 	desktop: [
-		{ top: t('setting.position.option-top') },
-		{ props: t('setting.position.option-props') },
-		{ fabl: t('setting.position.option-fabl') },
-		{ fabr: t('setting.position.option-fabr') },
-		{ hidden: t('setting.position.option-hidden') },
+		{ [PositionType.Top]: t('setting.position.option-top') },
+		{ [PositionType.Props]: t('setting.position.option-props') },
+		{ [PositionType.Bottom]: t('setting.position.option-bottom') },
+		{ [PositionType.FabLeft]: t('setting.position.option-fabl') },
+		{ [PositionType.FabRight]: t('setting.position.option-fabr') },
+		{ [PositionType.Hidden]: t('setting.position.option-hidden') },
 	],
 	mobile: [
-		{ top: t('setting.position.option-top') },
-		{ props: t('setting.position.option-props') },
-		{ fabl: t('setting.position.option-fabl') },
-		{ fabr: t('setting.position.option-fabr') },
-		{ hidden: t('setting.position.option-hidden-mobile') },
+		{ [PositionType.Top]: t('setting.position.option-top') },
+		{ [PositionType.Props]: t('setting.position.option-props') },
+		{ [PositionType.Bottom]: t('setting.position.option-bottom') },
+		{ [PositionType.FabLeft]: t('setting.position.option-fabl') },
+		{ [PositionType.FabRight]: t('setting.position.option-fabr') },
+		{ [PositionType.Hidden]: t('setting.position.option-hidden-mobile') },
 	]
+}
+
+export const RIBBON_ACTION_OPTIONS = {
+	[RibbonAction.ItemSuggester]: t('setting.other.ribbon-action.option-item-suggester'),
+	[RibbonAction.ToolbarSuggester]: t('setting.other.ribbon-action.option-toolbar-suggester'),
+	[RibbonAction.Toolbar]: (t('setting.other.ribbon-action.option-toolbar')),
 }
 
 /**
  * Each of these correlates to (style) metatdata that's matched in styles.css.
  */
 export const DEFAULT_STYLE_OPTIONS: { [key: string]: string }[] = [
-	{ autohide: t('setting.styles.option-autohide') },
-    { border: t('setting.styles.option-border') },
-	{ button: t('setting.styles.option-button') },
-    { center: t('setting.styles.option-center') },
-	{ wide: t('setting.styles.option-wide') },
-    { floatl: t('setting.styles.option-floatl') },
-    { floatr: t('setting.styles.option-floatr') },
-    { left: t('setting.styles.option-left') },
-    { right: t('setting.styles.option-right') },
-	{ between: t('setting.styles.option-between') },
-    { even: t('setting.styles.option-even') },
-    { sticky: t('setting.styles.option-sticky') },
+	{ [DefaultStyleType.Autohide]: t('setting.styles.option-autohide') },
+    { [DefaultStyleType.Border]: t('setting.styles.option-border') },
+	{ [DefaultStyleType.Button]: t('setting.styles.option-button') },
+    { [DefaultStyleType.Center]: t('setting.styles.option-center') },
+	{ [DefaultStyleType.Wide]: t('setting.styles.option-wide') },
+    { [DefaultStyleType.Left]: t('setting.styles.option-left') },
+    { [DefaultStyleType.Right]: t('setting.styles.option-right') },
+	{ [DefaultStyleType.Between]: t('setting.styles.option-between') },
+    { [DefaultStyleType.Even]: t('setting.styles.option-even') },
+    { [DefaultStyleType.Sticky]: t('setting.styles.option-sticky') },
 ];
 
 export const DEFAULT_STYLE_DISCLAIMERS: { [key: string]: string }[] = [
-	{ autohide: t('setting.styles.option-autohide-disclaimer') },
-	{ floatl: t('setting.styles.option-floatl-disclaimer') },
-	{ floatr: t('setting.styles.option-floatr-disclaimer') },
-	{ sticky: t('setting.styles.option-sticky-disclaimer') },
-	{ wide: t('setting.styles.option-wide-disclaimer') },
+	{ [DefaultStyleType.Autohide]: t('setting.styles.option-autohide-disclaimer') },
+	{ [DefaultStyleType.Sticky]: t('setting.styles.option-sticky-disclaimer') },
 ];
 
 /**
  * Each of these correlates to (style) metatdata that's matched in styles.css.
  */
 export const MOBILE_STYLE_OPTIONS: { [key: string]: string }[] = [
-    { mbrder: t('setting.styles.option-border') },
-    { mnbrder: t('setting.styles.option-noborder') },
-	{ mbtn: t('setting.styles.option-button') },
-    { mctr: t('setting.styles.option-center') },
-	{ mnwd: t('setting.styles.option-nowide') },
-	{ mnwrp: t('setting.styles.option-nowrap') },
-	{ mwd: t('setting.styles.option-wide') },
-    { mfltl: t('setting.styles.option-floatl') },
-    { mfltr: t('setting.styles.option-floatr') },
-    { mnflt: t('setting.styles.option-nofloat') },
-    { mlft: t('setting.styles.option-left') },
-    { mrght: t('setting.styles.option-right') },
-	{ mbtwn: t('setting.styles.option-between') },
-    { mevn: t('setting.styles.option-even') },
-    { mstcky: t('setting.styles.option-sticky') },
-    { mnstcky: t('setting.styles.option-notsticky') },
+    { [MobileStyleType.Border]: t('setting.styles.option-border') },
+    { [MobileStyleType.NoBorder]: t('setting.styles.option-noborder') },
+	{ [MobileStyleType.Button]: t('setting.styles.option-button') },
+    { [MobileStyleType.Center]: t('setting.styles.option-center') },
+	{ [MobileStyleType.NoWide]: t('setting.styles.option-nowide') },
+	{ [MobileStyleType.NoWrap]: t('setting.styles.option-nowrap') },
+	{ [MobileStyleType.Wide]: t('setting.styles.option-wide') },
+    { [MobileStyleType.Left]: t('setting.styles.option-left') },
+    { [MobileStyleType.Right]: t('setting.styles.option-right') },
+	{ [MobileStyleType.Between]: t('setting.styles.option-between') },
+    { [MobileStyleType.Even]: t('setting.styles.option-even') },
+    { [MobileStyleType.Sticky]: t('setting.styles.option-sticky') },
+    { [MobileStyleType.NoSticky]: t('setting.styles.option-notsticky') },
 ];
 
 export const MOBILE_STYLE_DISCLAIMERS: { [key: string]: string }[] = [
-	{ mfltl: t('setting.styles.option-floatl-disclaimer') },
-	{ mfltr: t('setting.styles.option-floatr-disclaimer') },
-	{ mnwrp: t('setting.styles.option-nowrap-disclaimer') },
-	{ mstcky: t('setting.styles.option-sticky-disclaimer') },
-	{ mnwd:  t('setting.styles.option-nowide-disclaimer') },
-	{ mwd: t('setting.styles.option-wide-disclaimer') },
+	{ [MobileStyleType.NoWrap]: t('setting.styles.option-nowrap-disclaimer') },
+	{ [MobileStyleType.Sticky]: t('setting.styles.option-sticky-disclaimer') },
 ];

@@ -1,7 +1,9 @@
 import NoteToolbarPlugin from "main";
-import { ComponentType, DEFAULT_SETTINGS, ItemType, ItemViewContext, PlatformType, Position, PositionType, SETTINGS_VERSION, t, ToolbarItemSettings, ToolbarSettings, ViewType, Visibility } from "Settings/NoteToolbarSettings";
-import { Platform } from "obsidian";
+import { COMMAND_PREFIX_TBAR, ComponentType, DEFAULT_SETTINGS, FolderMapping, ItemType, ItemViewContext, PlatformType, Position, PositionType, SETTINGS_VERSION, t, ToolbarItemSettings, ToolbarSettings, ViewType, Visibility } from "Settings/NoteToolbarSettings";
+import { FrontMatterCache, Platform, TFile } from "obsidian";
 import { debugLog, getUUID } from "Utils/Utils";
+import ToolbarSettingsModal from "./UI/Modals/ToolbarSettingsModal";
+import { NoteToolbarSettingTab } from "./UI/NoteToolbarSettingTab";
 
 export class SettingsManager {
 
@@ -12,11 +14,35 @@ export class SettingsManager {
     }
 
 	/**
+	 * Adds the given toolbar to the plugin settings.
+	 * @param toolbar ToolbarSettings to add.
+	 */
+	public async addToolbar(toolbar: ToolbarSettings): Promise<void> {
+		this.plugin.settings.toolbars.push(toolbar);
+		this.plugin.settings.toolbars.sort((a, b) => a.name.localeCompare(b.name));
+		await this.save();
+	}
+
+	/**
 	 * Removes the provided toolbar from settings; does nothing if it does not exist.
 	 * @param id UUID of the toolbar to remove.
 	 */
 	public deleteToolbar(id: string) {
+		this.plugin.removeCommand(COMMAND_PREFIX_TBAR + id);
 		this.plugin.settings.toolbars = this.plugin.settings.toolbars.filter(tbar => tbar.uuid !== id);
+	}
+
+	/** 
+	 * Removes the provided item from the toolbar; does nothing if it does not exist.
+	 */
+	public deleteToolbarItemById(uuid: string): void {
+		for (const toolbar of this.plugin.settings.toolbars) {
+			const index = toolbar.items.findIndex(item => item.uuid === uuid);
+			if (index !== -1) {
+				toolbar.items.splice(index, 1);
+				return;
+			}
+		}
 	}
 
 	/**
@@ -28,10 +54,12 @@ export class SettingsManager {
 		debugLog('duplicateToolbar', toolbar);
 		let newToolbar = {
 			uuid: getUUID(),
+			customClasses: "",
 			defaultStyles: JSON.parse(JSON.stringify(toolbar.defaultStyles)),
+			hasCommand: false,
 			items: [],
 			mobileStyles: JSON.parse(JSON.stringify(toolbar.mobileStyles)),
-			name: this.getUniqueToolbarName(toolbar.name),
+			name: this.getUniqueToolbarName(toolbar.name, true),
 			position: JSON.parse(JSON.stringify(toolbar.position)),
 			updated: new Date().toISOString(),
 		} as ToolbarSettings;
@@ -39,9 +67,7 @@ export class SettingsManager {
 			this.duplicateToolbarItem(newToolbar, item);
 		});
 		debugLog('duplicateToolbar: duplicated', newToolbar);
-		this.plugin.settings.toolbars.push(newToolbar);
-		this.plugin.settings.toolbars.sort((a, b) => a.name.localeCompare(b.name));
-		await this.plugin.settingsManager.save();
+		await this.addToolbar(newToolbar);
 		return newToolbar.uuid;
 	}
 
@@ -51,7 +77,7 @@ export class SettingsManager {
 	 * @param item ToolbarItemSettings to duplicate.
 	 * @returns string UUID of the new item.
 	 */
-	public duplicateToolbarItem(toolbar: ToolbarSettings, item: ToolbarItemSettings, insertAfter: boolean = false): string {
+	public async duplicateToolbarItem(toolbar: ToolbarSettings, item: ToolbarItemSettings, insertAfter: boolean = false): Promise<string> {
 		debugLog('duplicateToolbarItem', item);
 		let newItem = JSON.parse(JSON.stringify(item)) as ToolbarItemSettings;
 		newItem.uuid = getUUID();
@@ -66,6 +92,72 @@ export class SettingsManager {
 			toolbar.items.push(newItem);
 		}
 		return newItem.uuid;
+	}
+
+	/**
+	 * Get toolbar for the given frontmatter (based on a toolbar prop), and failing that the file (based on folder mappings).
+	 * @param frontmatter FrontMatterCache to check if there's a prop for the toolbar.
+	 * @param file The note to check if we have a toolbar for.
+	 * @returns ToolbarSettings or undefined, if there is no matching toolbar.
+	 */
+	public getMappedToolbar(frontmatter: FrontMatterCache | undefined, file: TFile): ToolbarSettings | undefined {
+
+		// debugLog('getMappedToolbar()');
+
+		let matchingToolbar: ToolbarSettings | undefined = undefined;
+
+		// debugLog('- frontmatter: ', frontmatter);
+		const propName = this.plugin.settings.toolbarProp;
+		let ignoreToolbar = false;
+
+		const notetoolbarProp: string[] = frontmatter?.[propName] ?? null;
+		if (notetoolbarProp !== null) {
+			// if any prop = 'none' then don't return a toolbar
+			notetoolbarProp.includes('none') ? ignoreToolbar = true : false;
+			// is it valid? (i.e., is there a matching toolbar?)
+			ignoreToolbar ? undefined : matchingToolbar = this.getToolbarFromProps(notetoolbarProp);
+		}
+
+		// we still don't have a matching toolbar
+		if (!matchingToolbar && !ignoreToolbar) {
+
+			// check if the note is in a folder that's mapped, and if the mapping is valid
+			let mapping: FolderMapping;
+			let filePath: string;
+			for (let index = 0; index < this.plugin.settings.folderMappings.length; index++) {
+				mapping = this.plugin.settings.folderMappings[index];
+				filePath = file.parent?.path === '/' ? '/' : file.path.toLowerCase();
+				// debugLog('getMatchingToolbar: checking folder mappings: ', filePath, ' startsWith? ', mapping.folder.toLowerCase());
+				if (['*'].includes(mapping.folder) || filePath.toLowerCase().startsWith(mapping.folder.toLowerCase())) {
+					// continue until we get a matching toolbar
+					matchingToolbar = this.getToolbarById(mapping.toolbar);
+					if (matchingToolbar) {
+						// debugLog('  - matched toolbar:', matchingToolbar);
+						break;
+					}
+				}
+			}
+
+		}
+
+		return matchingToolbar;
+
+	}
+
+	/**
+	 * Gets the toolbar from settings, using the provided value, checking both names and UUIDs.
+	 */
+	public getToolbar(nameOrUuid: string | null): ToolbarSettings | undefined {
+		if (!nameOrUuid) return undefined;
+		const isUuid = this.isUuid(nameOrUuid);
+		return this.plugin.settings.toolbars.find(tbar => 
+			isUuid ? tbar.uuid === nameOrUuid : tbar.name.toLowerCase() === nameOrUuid.toLowerCase()
+		);
+	}
+	  
+	private isUuid(value: string): boolean {
+		const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+		return uuidRegex.test(value);
 	}
 
 	/**
@@ -144,21 +236,64 @@ export class SettingsManager {
 	/**
 	 * Gets a unique name for a new toolbar copy, using the provided name.
 	 * @param name name of the toolbar to generate a unique copy name for
+	 * @param isCopy true if this is a copy, appending word "copy"; false otherwise
 	 * @returns unique toolbar name
 	 */
-	private getUniqueToolbarName(name: string): string {
+	public getUniqueToolbarName(name: string, isCopy: boolean): string {
 		let uniqueName = name;
 		let counter = 1;
 	
 		const existingNames = this.plugin.settings.toolbars.map(toolbar => toolbar.name);
 	
 		while (existingNames.includes(uniqueName)) {
-			uniqueName = `${name} ${t('setting.toolbars.duplicate-file-suffix')}${counter > 1 ? ` ${counter}` : ''}`;
+			uniqueName = `${name}`;
+			uniqueName += isCopy ? ` ${t('setting.toolbars.duplicated-tbar-suffix')}` : '';
+			uniqueName += (counter > 1) ? ` ${counter}` : '';
 			counter++;
 		}
 	
 		return uniqueName;
 	}
+
+	/**
+	 * Creates a new toolbar with default settings, with an optional name.
+	 * @param name name of the toolbar
+	 * @returns ToolbarSettings for the new toolbar
+	 */
+	public async newToolbar(name: string = ""): Promise<ToolbarSettings> {
+		let newToolbar = {
+			uuid: getUUID(),
+			customClasses: "",
+			defaultStyles: ["border", "even", "sticky"],
+			hasCommand: false,
+			items: [],
+			mobileStyles: [],
+			name: name,
+			position: { 
+				desktop: { allViews: { position: 'props' } }, 
+				mobile: { allViews: { position: 'props' } }, 
+				tablet: { allViews: { position: 'props' } } },
+			updated: new Date().toISOString(),
+		} as ToolbarSettings;
+		this.plugin.settings.toolbars.push(newToolbar);
+		await this.save();
+		return newToolbar;
+	}
+
+	/**
+	 * Opens the toolbar settings modal for the provided toolbar.
+	 * @param toolbar ToolbarSettings to open
+	 * @param parent provide the NoteToolbarSettingTab if coming from settings UI; null if coming from editor 
+	 */
+    public openToolbarSettings(toolbar: ToolbarSettings, parent: NoteToolbarSettingTab | null | undefined = null) {
+        const modal = new ToolbarSettingsModal(this.plugin.app, this.plugin, parent, toolbar);
+		modal.setTitle( toolbar.name ? t('setting.title-edit-toolbar', { toolbar: toolbar.name }) : t('setting.title-edit-toolbar_none'));
+        modal.open();
+    }
+
+	/*************************************************************************
+	 * SAVE / LOAD / MIGRATION
+	 *************************************************************************/
 
 	/**
 	 * Loads settings, and migrates from old versions if needed.
@@ -419,7 +554,7 @@ export class SettingsManager {
 		await this.plugin.saveData(this.plugin.settings);
 
 		await this.plugin.removeActiveToolbar();
-		await this.plugin.renderToolbarForActiveFile();
+		await this.plugin.renderActiveToolbar();
 
 		debugLog("SETTINGS SAVED: " + new Date().getTime());
 	}

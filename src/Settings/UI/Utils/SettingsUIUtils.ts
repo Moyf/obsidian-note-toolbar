@@ -1,16 +1,26 @@
-import { getIcon, setIcon } from "obsidian";
-import { ItemType, t, ToolbarItemSettings, ToolbarSettings, USER_GUIDE_URL } from "Settings/NoteToolbarSettings";
+import { ButtonComponent, getIcon, Platform, setIcon, Setting } from "obsidian";
+import { ItemType, RELEASES_URL, t, ToolbarItemSettings, ToolbarSettings, USER_GUIDE_URL, VIEW_TYPE_WHATS_NEW, WHATSNEW_VERSION } from "Settings/NoteToolbarSettings";
 import { SettingsManager } from "Settings/SettingsManager";
+import { HelpModal } from "../Modals/HelpModal";
+import NoteToolbarPlugin from "main";
+import { debugLog } from "Utils/Utils";
+import ToolbarSettingsModal from "../Modals/ToolbarSettingsModal";
+import ItemModal from "../Modals/ItemModal";
 
 /**
  * Constructs a preview of the given toolbar, including the icons used.
+ * @param plugin NoteToolbarPlugin reference
  * @param toolbar ToolbarSettings to display in the preview.
  * @param settingsManager Optional SettingsManager if Groups need to be expanded within previews. 
  * @param showEditLink set to true to add a link to edit the toolbar, after the preview; default is false.
  * @returns DocumentFragment
  */
 export function createToolbarPreviewFr(
-	toolbar: ToolbarSettings, settingsManager?: SettingsManager, showEditLink: boolean = false): DocumentFragment {
+	plugin: NoteToolbarPlugin, 
+	toolbar: ToolbarSettings, 
+	settingsManager?: SettingsManager, 
+	showEditLink: boolean = false
+): DocumentFragment {
 
 	let toolbarFr: DocumentFragment = document.createDocumentFragment();
 	let previewContainer = toolbarFr.createDiv();
@@ -61,6 +71,9 @@ export function createToolbarPreviewFr(
 							if (item.label) {
 								let labelFr = createSpan();
 								labelFr.textContent = item.label;
+								if (item.label && plugin.hasVars(item.label)) {
+									labelFr.addClass('note-toolbar-setting-item-preview-code');
+								}
 								itemsFr.append(labelFr);
 								defaultItemFr.append(labelFr);
 							}
@@ -92,6 +105,68 @@ export function createToolbarPreviewFr(
 }
 
 /**
+ * Displays the help section.
+ * @param containerEl HTMLElement to add the content to.
+ * @param useTextVersion set to true to just use the small text version.
+ * @param closeCallback function to close the settings window, which will depend on where it was launched from
+ */
+export function displayHelpSection(plugin: NoteToolbarPlugin, settingsDiv: HTMLElement, useTextVersion: boolean = false, closeCallback: () => void) {
+	
+	if (Platform.isPhone || useTextVersion) {
+
+		let helpContainerEl = settingsDiv.createDiv();
+		helpContainerEl.addClass('note-toolbar-setting-help-section');
+		const helpDesc = document.createDocumentFragment();
+		helpDesc.append("v" + plugin.manifest.version, " • ");
+		let whatsNewLink = helpDesc.createEl("a", { href: "#", text: t('setting.button-whats-new') });
+		plugin.registerDomEvent(whatsNewLink, 'click', (event) => { 
+			plugin.app.workspace.getLeaf(true).setViewState({
+				type: VIEW_TYPE_WHATS_NEW,
+				active: true
+			});
+			closeCallback();
+		});
+		helpDesc.append(" • ", helpDesc.createEl("a", { href: "obsidian://note-toolbar?help",	text: iconTextFr('help-circle', t('setting.button-help')) }));
+		helpContainerEl.append(helpDesc);
+
+	}
+	else {
+
+		const helpDesc = document.createDocumentFragment();
+		helpDesc.append(
+			helpDesc.createEl("a", { href: RELEASES_URL, text: 'v' + plugin.manifest.version })
+		);
+
+		new Setting(settingsDiv)
+			.setName(t('plugin.name') + ' • v' + plugin.manifest.version)
+			.setDesc(t('setting.help.description'))
+			.addButton((button: ButtonComponent) => {
+				button
+					.setTooltip(t('setting.button-whats-new-tooltip'))
+					.onClick(() => {
+						plugin.app.workspace.getLeaf(true).setViewState({
+							type: VIEW_TYPE_WHATS_NEW,
+							active: true
+						});
+						closeCallback();
+					})
+					.buttonEl.setText(t('setting.button-whats-new'));
+			})
+			.addButton((button: ButtonComponent) => {
+				button
+					.setTooltip(t('setting.button-help-tooltip'))
+					.onClick(() => {
+						let help = new HelpModal(plugin);
+						help.open();
+					})
+					.buttonEl.setText(iconTextFr('help-circle', t('setting.button-help')))
+			});
+
+	}
+
+}
+
+/**
  * Creates a text fragment with the given message, for an empty state.
  * @param message Message to return as a fragment.
  * @returns DocumentFragment containing the message and styling.
@@ -105,16 +180,180 @@ export function emptyMessageFr(message: string): DocumentFragment {
 }
 
 /**
+ * Returns a fragment containing any applicable style disclaimers to show, for the provided styles.
+ * @param disclaimers List of disclaimers, corresponds with DEFAULT and MOBILE _STYLE_DISCLAIMERS
+ * @param stylesToCheck styles that have been applied by the user, to check for applicable disclaimers
+ * @returns DocumentFragment with disclaimers to show in settings UI
+ */
+export function getStyleDisclaimersFr(disclaimers: {[key: string]: string}[], stylesToCheck: string[]): DocumentFragment {
+	let disclaimersFr = document.createDocumentFragment();
+	stylesToCheck.forEach(style => {
+		disclaimers.find(disclaimer => style in disclaimer)
+			? disclaimersFr.append( disclaimersFr.createEl("br"), "* ", getValueForKey(disclaimers, style) )
+			: undefined;
+	});
+	return disclaimersFr;
+}
+
+/**
+ * Returns the value for the provided key from the provided dictionary.
+ * @param dict key-value dictionary
+ * @param key string key
+ * @returns value from the dictionary
+ */
+export function getValueForKey(dict: {[key: string]: string}[], key: string): string {
+	const option = dict.find(option => key in option);
+	return option ? Object.values(option)[0] : '';
+}
+
+export function iconTextFr(icon: string, text: string): DocumentFragment {
+	let headingFr = document.createDocumentFragment();
+	let headingEl = headingFr.createEl('span');
+	headingEl.addClass('note-toolbar-setting-text-with-icon');
+	let headingIcon = headingEl.createEl('span');
+	setIcon(headingIcon, 'lucide-' + icon);
+	let headingText = headingEl.createEl('span');
+	headingText.setText(text);
+	headingFr.append(headingEl);
+	return headingFr;
+}
+
+/**
  * Creates a text fragment with help text and a Learn More link.
  * @param message Message to return as a fragment.
  * @param page Documentation page (i.e., URL after `.../wiki/`).
  * @returns DocumentFragment containing the message and styling.
  */
-export function learnMoreFr(message: string, page: string): DocumentFragment {
+export function learnMoreFr(message: string, page: string, linkText: string = t('setting.button-learn-more')): DocumentFragment {
 	let messageFr = document.createDocumentFragment();
 	messageFr.append(
 		message, ' ',
-		messageFr.createEl('a', { href: USER_GUIDE_URL + page, text: t('setting.learn-more') })
 	);
+	let learnMoreLink = messageFr.createEl('a', { href: USER_GUIDE_URL + page, text: linkText });
+	learnMoreLink.addClass('note-toolbar-setting-focussable-link');
 	return messageFr;
+}
+
+/**
+ * Creates a text fragment with a link to install/enable a plugin used by a given command.
+ * @param commandId ID of command to get the plugin ID from.
+ * @param linkText text to show as the link instead of the default "Review plugin"
+ * @returns DocumentFragement containing the link to open the plugin within Obsidian.
+ */
+export function pluginLinkFr(commandId: string, linkText?: string): DocumentFragment | undefined {
+	let pluginLinkFr = undefined;
+	let pluginId = commandId.includes(':') ? commandId.split(':')[0].trim() : undefined;
+	// don't show Community Plugins link for Obsidian's built-in commands
+	if (pluginId && pluginId !== 'workspace') {
+		pluginLinkFr = document.createDocumentFragment();
+		let pluginLink = pluginLinkFr.createEl('a', { 
+			href: `obsidian://show-plugin?id=${pluginId}`, 
+			text: linkText ? linkText : "Review\u00A0plugin" 
+		});
+		pluginLink.addClass('note-toolbar-setting-focussable-link');
+	}
+	return pluginLinkFr;
+}
+
+/**
+ * Removes the error on the field.
+ * @param fieldEl HTMLElement to update
+ */
+export function removeFieldError(fieldEl: HTMLElement | null) {
+	if (fieldEl) {
+		let fieldContainerEl = fieldEl.closest('.setting-item-control');
+		fieldContainerEl?.querySelector('.note-toolbar-setting-field-error')?.remove();
+		fieldEl?.removeClass('note-toolbar-setting-error');
+	}
+}
+
+/**
+ * Updates the given element with an error border and text.
+ * @param parent ToolbarSettingsModal
+ * @param fieldEl HTMLElement to update
+ * @param errorText Optional error text to display
+ * @param errorLink Optional link to display after error text
+ */
+export function setFieldError(parent: ToolbarSettingsModal | ItemModal, fieldEl: HTMLElement | null, errorText?: string, errorLink?: HTMLAnchorElement) {
+	if (fieldEl) {
+		let fieldContainerEl = fieldEl.closest('.setting-item-control');
+		if (!fieldContainerEl) {
+			fieldContainerEl = fieldEl.closest('.note-toolbar-setting-item-preview');
+			errorText = ''; // no need to show errorText for item previews
+		}
+		if (fieldContainerEl?.querySelector('.note-toolbar-setting-field-error') === null) {
+			if (errorText) {
+				let errorDiv = createEl('div', { 
+					text: errorText, 
+					cls: 'note-toolbar-setting-field-error' });
+				if (errorLink) {
+					// as it's not easy to listen for plugins being enabled,
+					// user will have to click a refresh link to dismiss the error
+					parent.plugin.registerDomEvent(errorLink, 'click', event => {
+						let refreshLink = document.createDocumentFragment().createEl('a', { text: t('setting.item.option-command-error-refresh'), href: '#' } );
+						let refreshIcon = refreshLink.createSpan();
+						setIcon(refreshIcon, 'refresh-cw');
+						let oldLink = event.currentTarget as HTMLElement;
+						oldLink?.replaceWith(refreshLink);
+						parent.plugin.registerDomEvent(refreshLink, 'click', event => {
+							parent.display();
+						});
+					});
+					errorDiv.append(' ', errorLink);
+				}
+				fieldContainerEl.insertAdjacentElement('beforeend', errorDiv);
+			}
+			fieldEl.addClass('note-toolbar-setting-error');
+		}
+	}
+}
+
+/**
+ * Updates the given element with the given help text.
+ * @param fieldEl HTMLElement to update
+ * @param helpFr DocumentFragment of the help text
+ */
+export function setFieldHelp(fieldEl: HTMLElement, helpFr?: DocumentFragment) {
+	if (!helpFr) return;
+	let existingHelp = fieldEl.querySelector('.note-toolbar-setting-field-help');
+	existingHelp?.remove();
+	let fieldHelp = createDiv();
+	fieldHelp.addClass('note-toolbar-setting-field-help');
+	fieldHelp.append(helpFr);
+	fieldHelp ? fieldEl.insertAdjacentElement('beforeend', fieldHelp) : undefined;
+}
+
+/**
+ * Shows the What's New dialog if the user hasn't seen it yet.
+ */
+export function showWhatsNewIfNeeded(plugin: NoteToolbarPlugin) {
+
+	// show the What's New dialog once if the user hasn't seen it yet
+	if (plugin.settings.whatsnew_version !== WHATSNEW_VERSION) {
+		plugin.settings.whatsnew_version = WHATSNEW_VERSION;
+		plugin.settingsManager.save().then(() => {
+			plugin.app.workspace.getLeaf(true).setViewState({
+				type: VIEW_TYPE_WHATS_NEW,
+				active: true
+			});
+		});
+	}
+
+}
+
+/**
+ * Updates the icon for the preview and form
+ * @param settingEl 
+ * @param selectedIcon 
+ */
+export function updateItemIcon(settingEl: HTMLElement, selectedIcon: string) {
+	// update item form
+	let formEl = settingEl.querySelector('.note-toolbar-setting-item-icon .clickable-icon') as HTMLElement;
+	formEl ? setIcon(formEl, selectedIcon === t('setting.icon-suggester.option-no-icon') ? 'lucide-plus-square' : selectedIcon) : undefined;
+	formEl.setAttribute('data-note-toolbar-no-icon', selectedIcon === t('setting.icon-suggester.option-no-icon') ? 'true' : 'false');
+	if (this.parent instanceof ToolbarSettingsModal) {
+		// update item preview
+		let previewIconEl = settingEl.querySelector('.note-toolbar-setting-item-preview-icon') as HTMLElement;
+		(previewIconEl && selectedIcon) ? setIcon(previewIconEl, selectedIcon) : undefined;
+	}
 }

@@ -1,9 +1,11 @@
-import { t, ToolbarStyle } from "Settings/NoteToolbarSettings";
+import { COMMAND_PREFIX_TBAR, PositionType, t, ToolbarStyle } from "Settings/NoteToolbarSettings";
+import { CommandSuggestModal } from "Settings/UI/Modals/CommandSuggestModal";
 import { ItemSuggestModal } from "Settings/UI/Modals/ItemSuggestModal";
 import ToolbarSettingsModal from "Settings/UI/Modals/ToolbarSettingsModal";
+import { ToolbarSuggestModal } from "Settings/UI/Modals/ToolbarSuggestModal";
 import { debugLog } from "Utils/Utils";
 import NoteToolbarPlugin from "main";
-import { MarkdownView } from "obsidian";
+import { MarkdownView, Notice } from "obsidian";
 
 export class CommandsManager {
 
@@ -12,6 +14,28 @@ export class CommandsManager {
     constructor(plugin: NoteToolbarPlugin) {
         this.plugin = plugin;
     }
+
+    /**
+     * Adds commands to open each toolbar in a Quick Tools window.
+     */
+    setupToolbarCommands() {
+        this.plugin.settings.toolbars.forEach(toolbar => {
+            if (toolbar.hasCommand) {
+                this.plugin.addCommand({ 
+                    id: COMMAND_PREFIX_TBAR + toolbar.uuid,
+                    name: t('command.name-open-toolbar', {toolbar: toolbar.name}),
+                    icon: this.plugin.settings.icon,
+                    callback: async () => {
+                        this.plugin.commands.openItemSuggester(toolbar.uuid);
+                    }}
+                );
+            }
+        });
+    }
+
+    /******************************************************************************
+     COMMANDS
+    ******************************************************************************/
 
     /**
      * Sets the keyboard's focus on the first visible item in the toolbar.
@@ -23,15 +47,16 @@ export class CommandsManager {
         let toolbarEl = this.plugin.getToolbarEl();
         let toolbarPosition = toolbarEl?.getAttribute('data-tbar-position');
         switch (toolbarPosition) {
-            case 'fabr':
-            case 'fabl':
+            case PositionType.FabRight:
+            case PositionType.FabLeft:
                 // trigger the menu
                 let toolbarFab = toolbarEl?.querySelector('button.cg-note-toolbar-fab') as HTMLButtonElement;
                 debugLog("focusCommand: button: ", toolbarFab);
                 toolbarFab.click();
                 break;
-            case 'props':
-            case 'top':
+            case PositionType.Bottom:
+            case PositionType.Props:
+            case PositionType.Top:
                 // get the list and set focus on the first visible item
                 let itemsUl: HTMLElement | null = this.plugin.getToolbarListEl();
                 if (itemsUl) {
@@ -48,7 +73,7 @@ export class CommandsManager {
                     linkEl?.focus();
                 }
                 break;
-            case 'hidden':
+            case PositionType.Hidden:
             default:
                 // do nothing
                 break;
@@ -57,11 +82,26 @@ export class CommandsManager {
     }
 
     /**
-     * Opens the item suggester modal.
+     * Copies the selected command to the clipboard as a NTB URI or callout data element.
      */
-    async openItemSuggester(): Promise<void> {
+    async copyCommand(returnDataElement: boolean = false): Promise<void> {
+        const modal = new CommandSuggestModal(this.plugin, (command) => {
+            const commandText = returnDataElement
+                ? `[]()<data data-ntb-command="${command.id}"/> <!-- ${command.name} -->`
+                : `obsidian://note-toolbar?command=${command.id}`;
+            navigator.clipboard.writeText(commandText);
+            new Notice(t('command.copy-command-notice'));
+        });
+        modal.open();
+    }
+
+    /**
+     * Opens the item suggester modal.
+     * @param toolbarId optional ID of a toolbar to limit the ItemSuggestModal to show
+     */
+    async openItemSuggester(toolbarId?: string): Promise<void> {
         let activeFile = this.plugin.app.workspace.getActiveFile();
-        const modal = new ItemSuggestModal(this.plugin, activeFile);
+        const modal = new ItemSuggestModal(this.plugin, activeFile, toolbarId);
         modal.open();
     }
 
@@ -76,17 +116,33 @@ export class CommandsManager {
     }
 
     /**
-     * Convenience command to open this toolbar's settings.
+     * Convenience command to open the active toolbar's settings.
      */
     async openToolbarSettings(): Promise<void> {
         // figure out what toolbar is on the screen
         let toolbarEl = this.plugin.getToolbarEl();
-        let toolbarSettings = toolbarEl ? this.plugin.settingsManager.getToolbarById(toolbarEl?.id) : undefined;
+        toolbarEl?.id ? await this.openToolbarSettingsForId(toolbarEl.id) : undefined;
+    }
+
+    /**
+     * Opens settings for a particular toolbar by ID.
+     */
+    async openToolbarSettingsForId(uuid: string): Promise<void> {
+        let toolbarSettings = this.plugin.settingsManager.getToolbarById(uuid);
         if (toolbarSettings) {
             const modal = new ToolbarSettingsModal(this.plugin.app, this.plugin, null, toolbarSettings);
             modal.setTitle(t('setting.title-edit-toolbar', { toolbar: toolbarSettings.name }));
             modal.open();
         }
+    }
+
+    /**
+     * Opens the toolbar suggester modal.
+     */
+    async openToolbarSuggester(): Promise<void> {
+        let activeFile = this.plugin.app.workspace.getActiveFile();
+        const modal = new ToolbarSuggestModal(this.plugin, activeFile);
+        modal.open();
     }
 
     /**

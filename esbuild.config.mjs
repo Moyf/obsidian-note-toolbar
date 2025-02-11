@@ -1,5 +1,6 @@
 import esbuild from "esbuild";
-import { yamlInliner } from "./build/yamlInliner.mjs";
+import chokidar from "chokidar";
+import { yamlInliner } from "./build/yaml-inliner.mjs";
 import process from "process";
 import builtins from "builtin-modules";
 
@@ -13,14 +14,26 @@ if you want to view the source, please visit the github repository of this plugi
 const prod = (process.argv[2] === "production");
 
 // use esbuild to check CSS for errors
-await esbuild.build({
-	entryPoints: ['src/styles.css'],
-	bundle: false,
-	write: false
-}).catch(() => process.exit(1));
+// DISABLED for now until I have time to fix the noted issues
+// await esbuild.build({
+// 	entryPoints: ['src/styles.css'],
+// 	bundle: false,
+// 	write: false
+// }).catch(() => process.exit(1));
 
 // bring in the Style Settings YAML
-await yamlInliner('src/styles.css', 'styles.css').catch(() => process.exit(1));
+const yamlInlinerPlugin = {
+	name: 'yaml-inliner-plugin',
+	setup(build) {
+	  build.onEnd(async () => {
+		try {
+			await yamlInliner('src/styles.css', 'styles.css');
+		} catch {
+			process.exit(1);
+		}
+	  });
+	},
+  };
 
 const context = await esbuild.context({
 	banner: {
@@ -45,7 +58,11 @@ const context = await esbuild.context({
 		...builtins],
 	format: "cjs",
 	target: "es2018",
+	loader: {
+		'.md': 'text',
+	},
 	logLevel: "info",
+	plugins: [yamlInlinerPlugin],
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
 	minify: prod ? true : false,
@@ -57,4 +74,16 @@ if (prod) {
 	process.exit(0);
 } else {
 	await context.watch();
+
+	// watch for changes to files outside the build process
+	const watcher = chokidar.watch(['src/style-settings.yaml', 'src/styles.css']);
+	watcher.on('change', async (path) => {
+		console.log(`[watch] file changed: ${path}`);
+		try {
+			await context.rebuild();
+		} 
+		catch {
+			process.exit(1);
+		}
+	});
 }

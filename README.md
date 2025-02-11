@@ -1,43 +1,64 @@
-![Note Toolbar Obsidian Plugin](./docs/readme_banner.png)
+![Note Toolbar Obsidian Plugin](./docs/images/readme_banner.png)
 
 [![GitHub Release](https://img.shields.io/github/v/release/chrisgurney/obsidian-note-toolbar?sort=semver)](https://github.com/chrisgurney/obsidian-note-toolbar/releases) [![GitHub Release](https://img.shields.io/github/v/release/chrisgurney/obsidian-note-toolbar?include_prereleases&label=latest)](https://github.com/chrisgurney/obsidian-note-toolbar/releases) [![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=%23483699&label=downloads&query=%24%5B%22note-toolbar%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=note-toolbar) [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [!["Buy Me A Coffee"](https://img.shields.io/badge/-buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee)](https://www.buymeacoffee.com/cheznine)
 
-The Note Toolbar plugin for [Obsidian](https://obsidian.md) lets you create context-aware toolbars for your notes, which can include commands, links to vault files and folders, websites/URIs, and menus.
-
-With this plugin, you also get [Note Toolbar Callouts](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Note-Toolbar-Callouts) which you can add anywhere within your notes.
-
-📖 **How to use this plugin: [User Guide](https://github.com/chrisgurney/obsidian-note-toolbar/wiki)**
-
-![Demo of a sticky toolbar](./docs/note_toolbar_demo.gif)
-
-More options on mobile:
-
-![Mobile options for accessing the toolbar](./docs/mobile_options.png)
-
-# Features
+The Note Toolbar plugin for [Obsidian](https://obsidian.md) lets you create context-aware toolbars for your notes, which can include commands, links to vault files and folders, websites/URIs, menus, and scripts (Dataview, Templater, and JavaScript).
 
 Wondering what's new? See the [Release Notes](https://github.com/chrisgurney/obsidian-note-toolbar/releases)
 
 Wondering what's ahead? See the [Roadmap](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Roadmap)
 
-- [Create toolbars](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Creating-toolbars) with items that link to commands, files/folders, URIs/URLs, and have menus.
+**Jump to:**
+
+- [Features](#features)
+- [Installation](#installation)
+- [Getting Started](#getting-started-)
+- [Examples](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Examples)
+- [User Guide](https://github.com/chrisgurney/obsidian-note-toolbar/wiki)
+
+![Demo of a sticky toolbar](./docs/images/note_toolbar_demo.gif)
+
+More options on mobile:
+
+![Mobile options for accessing the toolbar](./docs/images/mobile_options.png)
+
+# Features
+
+_🏆 Runner up in the Obsidian Gems of the Year 2024: New plugins category._
+
+- [Create toolbars](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Creating-toolbars) with items that link to commands, files/folders, URIs/URLs, menus, and scripts (Dataview, Templater, and JavaScript).
 - [Define where and how toolbars are displayed](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Defining-where-to-show-toolbars): Based on their folders, or a user-defined property
   - [Position each toolbar](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Positioning-toolbars) below the Properties section, at the top of notes, as a floating button
+  - Add a toolbar to the _New tab_ view
   - Access the toolbar from the navigation bar (on mobile)
   - Toolbar items can use Obsidian's built-in icons, labels (which can include emojis), or a mix of both
   - Set optional tooltips for each item
   - Show items specifically on mobile, desktop, or both
   - Choose whether the icon, label, or both are displayed
 - [Variables](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Variables) let you sub in the note's title or properties into toolbar item labels, tooltips, and URIs
-- [Note Toolbar Callouts](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Note-Toolbar-Callouts) let you create and place toolbars anywhere within your notes
+- [Note Toolbar Callouts](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Note-Toolbar-Callouts) let you create and place toolbars anywhere within your notes.
+- [Share toolbars](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Sharing-toolbars) with other users with a link, or [as callouts](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Creating-callouts-from-toolbars).
 - [Style toolbars](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Styling-toolbars) by adding borders, sticking to the top of your note on scroll, auto-hiding, choosing whether or not the toolbar should wrap (on mobile), making items look like buttons, and aligning items (left, right, centered, evenly spaced)
   - Change or override these styles on mobile (i.e, phone and tablet)
   - Use any icon for the floating button or [nav bar](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Navigation-bar) (on mobile)
   - Or use the [Style Settings plugin](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Style-Settings-plugin-support) for even more options (colors, positioning, sizing, etc.)
-- [Commands](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Commands) to _completely_ toggle hiding of note properties, and to quickly access toolbar configuration
+- [Commands](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Commands) to _completely_ toggle hiding of note properties, to quickly access toolbars with [Quick Tools](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Quick-Tools), to get command URIs, and more.
 - [Note Toolbar URIs](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Note-Toolbar-URIs) let you execute commands, focus on folders, open menus (within Note Toolbar Callouts), and open toolbar settings, from mostly anywhere within your notes
 - [Keyboard controls](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Accessibility) available via the _Note Toolbar: Focus_ command
-- Right-click toolbars to quickly change the position, or to access configuration
+- Right-click toolbars to quickly change the position, style, or to access configuration
+- The [Note Toolbar API](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Note-Toolbar-API) which, to start, includes enhanced prompt and suggester UI that you can trigger from script items, including from Dataview and JavaScript.
+
+## Translations 🌐
+
+Note Toolbar's UI, and Style Settings options, are also available in:
+
+|Language name|Native name|Contributors|
+|---|---|---|
+|Chinese (Simplified)|简体中文|[@Moyf](https://github.com/Moyf)|
+|German|Deutsch|[@hartimd](https://github.com/hartimd)|
+|Ukrainian|Український|[@Laktiv](https://github.com/laktiv)|
+
+[Help add more translations.](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Help-translate-Note-Toolbar-%F0%9F%8C%90)
 
 # Installation
 
@@ -46,6 +67,7 @@ Wondering what's ahead? See the [Roadmap](https://github.com/chrisgurney/obsidia
 1. Open Obsidian's settings, and click _Community plugins_
 2. Search for _Note Toolbar_ and select it
 3. _Install_
+4. Make sure to _Enable_ the plugin
 
 <details>
 <summary>Installing beta versions via BRAT</summary>
@@ -76,19 +98,6 @@ As beta versions become available, I welcome <a href="https://github.com/chrisgu
 </blockquote>
 </details>
 
-# Translations 🌐
-
-Note Toolbar is also available in:
-
-|Language name|Native name|What's translated|Contributors|
-|---|---|---|---|
-|Chinese (Simplified)|简体中文|Plugin UI|[@Moyf](https://github.com/Moyf)|
-|German|Deutsch|Plugin UI, Style Settings|[@hartimd](https://github.com/hartimd)|
-|Ukrainian|Український|Plugin UI, Style Settings|[@Laktiv](https://github.com/laktiv)|
-
-[Help add more translations.](https://github.com/chrisgurney/obsidian-note-toolbar/discussions/118#discussioncomment-10548222)
-
-
 # Getting Started 🚀
 
 Once enabled, open Note Toolbar's settings:
@@ -103,7 +112,7 @@ If you want your toolbar to show without using a property, try mapping a folder 
 
 # Example
 
-![Example Daily Notes toolbar including Daily Notes navigation, and multiple command shortcuts](./docs/example_toolbar_daily_notes.png)
+![Example Daily Notes toolbar including Daily Notes navigation, and multiple command shortcuts](./docs/images/example_toolbar_daily_notes.png)
 
 📖 [See the User Guide](https://github.com/chrisgurney/obsidian-note-toolbar/wiki) for detailed instructions, and for more [examples](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Examples).
 
@@ -113,11 +122,11 @@ If you want your toolbar to show without using a property, try mapping a folder 
 
 📖 **See the [User Guide](https://github.com/chrisgurney/obsidian-note-toolbar/wiki).**
 
-Once installed, in Obsidian go to: _Settings... > Note Toolbar_ and click _+ New toolbar_.
+Once installed and enabled, in Obsidian go to: _Settings... > Note Toolbar_ and click _+ New toolbar_.
 
-![Example of settings configuration](./docs/settings.png)
+![Example of settings configuration](./docs/images/settings.png)
 
-![Example of settings for a toolbar](./docs/settings_edit_toolbar_example.png)
+![Example of settings for a toolbar](./docs/images/settings_edit_toolbar_example.png)
 
 # License
 
@@ -137,7 +146,7 @@ Shout out to other projects and people who helped me with questions I had while 
 
 Happy to [discuss your ideas](https://github.com/chrisgurney/obsidian-note-toolbar/discussions)! Pull requests are welcome!
 
-[Help add or review translations.](https://github.com/chrisgurney/obsidian-note-toolbar/discussions/118)
+[Help add or review translations.](https://github.com/chrisgurney/obsidian-note-toolbar/wiki/Help-translate-Note-Toolbar-%F0%9F%8C%90)
 
 # Support 🛟
 

@@ -2,12 +2,12 @@ import { AbstractInputSuggest, App, Command } from "obsidian";
 
 export class CommandSuggester extends AbstractInputSuggest<Command> {
 
-    private inputEl: HTMLInputElement;
     private commands: Command[];
+    private callback: (command: Command) => void
 
-    constructor(app: App, inputEl: HTMLInputElement) {
+    constructor(app: App, inputEl: HTMLInputElement, callback: (command: Command) => void) {
         super(app, inputEl);
-        this.inputEl = inputEl;
+        this.callback = callback;
         this.commands = Object.values(this.app.commands.commands);
     }
 
@@ -16,7 +16,7 @@ export class CommandSuggester extends AbstractInputSuggest<Command> {
         const lowerCaseInputStr = inputStr.toLowerCase();
 
         this.commands.forEach((command: Command) => {
-            if (command.name.toLowerCase().contains(lowerCaseInputStr)) {
+            if (command.name.toLowerCase().includes(lowerCaseInputStr)) {
                 suggestions.push(command);
             }
         });
@@ -29,10 +29,7 @@ export class CommandSuggester extends AbstractInputSuggest<Command> {
     }
 
     selectSuggestion(command: Command): void {
-        this.inputEl.value = command.name;
-        this.inputEl.setAttribute("data-command-id", command.id);
-        this.inputEl.trigger("input");
-        this.inputEl.blur();
+        this.callback(command);
         this.close();
     }
 }

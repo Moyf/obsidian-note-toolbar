@@ -1,5 +1,6 @@
-import { App, PaneType, Platform, TFile } from "obsidian";
-import { ComponentType, Visibility } from "Settings/NoteToolbarSettings";
+import NoteToolbarPlugin from "main";
+import { App, Command, ItemView, MarkdownView, Notice, PaneType, Platform, TFile } from "obsidian";
+import { COMMAND_DOES_NOT_EXIST, ComponentType, DefaultStyleType, ItemType, MOBILE_STYLE_COMPLIMENTS, MobileStyleType, ToolbarSettings, Visibility } from "Settings/NoteToolbarSettings";
 
 const DEBUG: boolean = false;
 
@@ -59,7 +60,47 @@ export function calcItemVisToggles(visibility: Visibility): [boolean, boolean, b
  * @param message Message to output for debugging.
  */
 export function debugLog(message?: any, ...optionalParams: any[]): void {
-	DEBUG && console.log(message, ...optionalParams);
+	DEBUG && console.debug(message, ...optionalParams);
+}
+
+/**
+ * Displays the provided scripting error as a console message, and is output to a container, if provided. 
+ * @param message 
+ * @param error 
+ * @param containerEl 
+ */
+export function displayScriptError(message: string, error?: any, containerEl?: HTMLElement) {
+	console.error(message, error);
+	if (containerEl) {
+		let errorEl = containerEl.createEl('pre');
+		errorEl.setText(message + '\n' + error);
+	}
+	let errorFr = createFragment();
+	errorFr.append(message);
+	error ? errorFr.append('\n', error) : undefined;
+	new Notice(errorFr, 5000);
+}
+
+/**
+ * Returns the name of a command based on its ID, if known.
+ * @param commandId command ID to look up
+ * @returns name of command; undefined otherwise
+ */
+export function getCommandNameById(plugin: NoteToolbarPlugin, commandId: string): string | undefined {
+	const availableCommands: Command[] = Object.values(plugin.app.commands.commands);
+	const matchedCommand = availableCommands.find(command => command.id === commandId);
+	return matchedCommand ? matchedCommand.name : undefined;
+}
+
+/**
+ * Get command ID by name.
+ * @param commandName name of the command to look for.
+ * @returns command ID or undefined.
+ */
+export function getCommandIdByName(plugin: NoteToolbarPlugin, commandName: string): string {
+	const availableCommands: Command[] = Object.values(plugin.app.commands.commands);
+	const matchedCommand = availableCommands.find(command => command.name === commandName);
+	return matchedCommand ? matchedCommand.id : COMMAND_DOES_NOT_EXIST;
 }
 
 /**
@@ -108,6 +149,15 @@ export function getLinkUiDest(event: MouseEvent | KeyboardEvent | undefined): Pa
 }
 
 /**
+ * Gets a unique ID for the current view.
+ * @param view to get the identifer for
+ * @returns ID string, consisting of the leaf's ID and the view's file path
+ */
+export function getViewId(view: MarkdownView | ItemView | null): string | undefined {
+	return (view && view instanceof MarkdownView) ? `${view.leaf.id} ${view.file?.path} ${view.getMode()}` : undefined;
+}
+
+/**
  * Local function to effectively convert component strings to booleans.
  * @param platform platform visibiliity to get
  * @returns booleans indicating whether there's an icon and a label, for each desktop, mobile, and tablet
@@ -125,16 +175,6 @@ function hasComponents(platform: { allViews?: { components: string[] } }): [bool
 }
 
 /**
- * Check if a string has vars, defined as {{variablename}}
- * @param s The string to check.
- */
-export function hasVars(s: string): boolean {
-	// TODO: check for vars in item labels & tooltips as well
-	const urlVariableRegex = /{{.*?}}/g;
-	return urlVariableRegex.test(s);
-}
-
-/**
  * Local function to check if given visibility has any components or not, for use in determining whether or not 
  * we should show it on a given platform.
  * @param platform platform visibility to check
@@ -142,6 +182,66 @@ export function hasVars(s: string): boolean {
  */
 function hasVisibleComponents(platform: { allViews?: { components: ComponentType[] } }): boolean {
     return !!platform && !!platform.allViews && platform.allViews.components.length > 0;
+}
+
+/**
+ * Checks if the given toolbar has the given style.
+ * @param toolbar toolbar to check if it has the given style.
+ * @param defaultStyle default style string to check
+ * @param mobileStyle mobile style string to check for, if the current platform is mobile (supercedes defaultStyle)
+ * @returns true if the toolbar has the given style; false otherwise 
+ */
+export function hasStyle(toolbar: ToolbarSettings, defaultStyle: DefaultStyleType, mobileStyle: MobileStyleType): boolean {
+	const isDefaultStyle = toolbar.defaultStyles.includes(defaultStyle);
+	if (Platform.isDesktop) return isDefaultStyle;
+
+	const isMobileStyle = toolbar.mobileStyles.includes(mobileStyle);
+	if (isMobileStyle) return true;
+
+	// get other styles that could override out the one provided (e.g., left -> right)
+	const mobileCompliments = MOBILE_STYLE_COMPLIMENTS.find(list => list.includes(mobileStyle));
+	// check for mobile styles in that list
+	const hasMobileCompliment = mobileCompliments?.some(el => toolbar.mobileStyles.includes(el));
+
+	// either there's a mobile style, otherwise use the default
+	return hasMobileCompliment ? isMobileStyle : isDefaultStyle;
+}
+
+/**
+ * Imports the given arguments string as if it were JSON, but allows for missing parens and quotes.
+ * @param args JSON-formatted string
+ * @returns parsed arguments, or null if parsing fails
+ */
+export function importArgs(args: string): Record<string, any> | null {
+	try {
+		// remove spaces between keys and colons
+		args = args.replace(/(\w+)\s*:/g, '"$1":');
+		
+		// add missing curly brackets
+		if (!args.trim().startsWith('{')) args = `{${args}`;
+		if (!args.trim().endsWith('}')) args = `${args}}`;
+
+		return JSON.parse(args);
+	} 
+	catch {
+		return null; 
+	}
+}
+
+/**
+ * Inserts a string at the current cursor position.
+ * @param app App
+ * @param textToInsert thing to insert
+ */
+export function insertTextAtCursor(app: App, textToInsert: any) {
+	const activeLeaf = app.workspace.getActiveViewOfType(MarkdownView);
+	const editor = activeLeaf ? activeLeaf.editor : null;
+	if (editor) {
+		const cursor = editor?.getCursor();
+		const text = String(textToInsert);
+		editor.replaceRange(text, cursor);
+		editor.setCursor(cursor.line, cursor.ch + text.length);
+	}
 }
 
 /**
@@ -232,35 +332,25 @@ export function removeComponentVisibility(platform: { allViews?: { components: C
 }
 
 /**
- * Replace variables in the given string of the format {{variablename}}, with metadata from the file.
- * @param app App
- * @param s String to replace the variables in.
- * @param file File with the metadata (name, frontmatter) we'll use to fill in the variables.
- * @param encode True if we should encode the variables (recommended if part of external URL).
- * @returns String with the variables replaced.
+ * Returns a list of plugin IDs for any commands not recognized in the given toolbar.
+ * @param toolbar ToolbarSettings to check for command usage
+ * @returns an array of plugin IDs that are invalid, or an empty array otherwise
  */
-export function replaceVars(app: App, s: string, file: TFile | null, encode: boolean): string {
+export function toolbarInvalidCommands(plugin: NoteToolbarPlugin, toolbar: ToolbarSettings): string[] {
+	return toolbar.items
+		.filter(item =>
+			item.linkAttr.type === ItemType.Command && !(item.linkAttr.commandId in plugin.app.commands.commands)
+		)
+		.map(item => item.linkAttr.commandId.split(':')[0].trim());
+}
 
-	let noteTitle = file?.basename;
-	if (noteTitle != null) {
-		s = s.replace('{{note_title}}', (encode ? encodeURIComponent(noteTitle) : noteTitle));
-	}
-	// have to get this at run/click-time, as file or metadata may not have changed
-	let frontmatter = file ? app.metadataCache.getFileCache(file)?.frontmatter : undefined;
-	// replace any variable of format {{prop_KEY}} with the value of the frontmatter dictionary with key = KEY
-	s = s.replace(/{{prop_(.*?)}}/g, (match, p1) => {
-		const key = p1.trim();
-		if (frontmatter && frontmatter[key] !== undefined) {
-			// regex to remove [[ and ]] and any alias (bug #75), in case an internal link was passed
-			const linkWrap = /\[\[([^\|\]]+)(?:\|[^\]]*)?\]\]/g;
-			// handle the case where the prop might be a list
-			let fm = Array.isArray(frontmatter[key]) ? frontmatter[key].join(',') : frontmatter[key];
-			return fm ? (encode ? encodeURIComponent(fm?.replace(linkWrap, '$1')) : fm.replace(linkWrap, '$1')) : '';
-		}
-		else {
-			return '';
-		}
-	});
-	return s;
-
+/**
+ * Checks if the given toolbar has a menu (which refers to another toolbar).
+ * @param toolbar ToolbarSettings to check for menu usage
+ * @returns true if a menu is used in the toolbar; false otherwise
+ */
+export function toolbarHasMenu(toolbar: ToolbarSettings): boolean {
+	return toolbar.items.some(item => 
+		(item.linkAttr.type === ItemType.Menu) && (item.link)
+	);
 }
